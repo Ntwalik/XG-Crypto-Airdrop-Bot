@@ -5,17 +5,19 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from config import BOT_TOKEN, ADMIN_ID
 from utils import get_airdrops, is_premium_user, add_user, get_referral_count, get_referral_link
-from apscheduler.schedulers.background import BackgroundScheduler
-import scraper  # your scraper.py that fetches airdrops and saves to JSON
+import scraper
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import pytz
+from telegram.constants import ParseMode
 
-# Enable logging
+# Logging setup
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     args = context.args
@@ -36,18 +38,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Use /refresh (admin only) to refresh airdrop list."
     )
 
+# /airdrops command
 async def airdrops(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user:
         premium = is_premium_user(user.id)
         airdrop_list = get_airdrops(premium=premium)
-        from telegram.constants import ParseMode
         await update.message.reply_text(airdrop_list, parse_mode=ParseMode.MARKDOWN)
     else:
         await update.message.reply_text("User information not found.")
 
+# /upgrade command
 async def upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    from telegram.constants import ParseMode
     await update.message.reply_text(
         "💰 To upgrade to premium, send $10 USDT (TRC20) in crypto to this address:\n\n"
         "`TRehjiajvEQfFxexd9CTfjHgNWwgKNJMP8`\n\n"
@@ -55,6 +57,7 @@ async def upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
+# /users command
 async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user and user.id == ADMIN_ID:
@@ -68,8 +71,8 @@ async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ You are not authorized.")
 
+# /referral command
 async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    from telegram.constants import ParseMode
     user = update.effective_user
     if user:
         count = get_referral_count(user.id)
@@ -81,6 +84,7 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
 
+# /refresh command
 async def refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user and user.id == ADMIN_ID:
@@ -93,6 +97,7 @@ async def refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ You are not authorized to use this command.")
 
+# /broadcast command
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user and user.id == ADMIN_ID:
@@ -109,14 +114,13 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             sent = 0
             failed = 0
-
             await update.message.reply_text(f"Starting broadcast to {len(users)} users...")
 
             for user_id in users:
                 try:
                     await context.bot.send_message(chat_id=user_id, text=message, parse_mode="Markdown")
                     sent += 1
-                    await asyncio.sleep(0.05)  # gentle delay to avoid flood
+                    await asyncio.sleep(0.05)
                 except Exception as e:
                     failed += 1
                     logger.error(f"Failed to send message to {user_id}: {e}")
@@ -127,16 +131,19 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ You are not authorized to use this command.")
 
+# Scheduler setup
 def schedule_scraper():
-    scheduler = BackgroundScheduler(timezone=pytz.UTC)
-    scheduler.add_job(scraper.fetch_airdrops_and_save, 'interval', hours=24, timezone=pytz.UTC)
+    scheduler = AsyncIOScheduler(timezone=pytz.UTC)
+    scheduler.add_job(scraper.fetch_airdrops_and_save, 'interval', hours=24)
     scheduler.start()
-    logger.info("Scheduler started for airdrop scraper.")
+    logger.info("⏰ Scheduler started for airdrop scraper.")
 
-def main():
-    schedule_scraper()
+import asyncio
+
+async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    # Add handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("airdrops", airdrops))
     app.add_handler(CommandHandler("upgrade", upgrade))
@@ -145,8 +152,19 @@ def main():
     app.add_handler(CommandHandler("refresh", refresh))
     app.add_handler(CommandHandler("broadcast", broadcast))
 
-    logger.info("Bot started.")
-    app.run_polling()
+    # Start scheduler after event loop is running
+    scheduler = AsyncIOScheduler(timezone=pytz.UTC)
+    scheduler.add_job(scraper.fetch_airdrops_and_save, 'interval', hours=24)
+    scheduler.start()
+    logger.info("⏰ Scheduler started for airdrop scraper.")
+
+    logger.info("🚀 Bot started.")
+    await app.run_polling()
+
+import nest_asyncio
+import asyncio
 
 if __name__ == '__main__':
-    main()
+    nest_asyncio.apply()
+    asyncio.get_event_loop().run_until_complete(main())
+
