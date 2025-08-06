@@ -3,3 +3,4 @@ requests
 apscheduler
 beautifulsoup4
 pytz
+nest_asyncio
