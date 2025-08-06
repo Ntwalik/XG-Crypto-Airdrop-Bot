@@ -17,6 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Your command handlers (start, airdrops, upgrade, etc.) unchanged here
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     args = context.args
@@ -127,7 +128,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Add handlers
+    # Register handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("airdrops", airdrops))
     app.add_handler(CommandHandler("upgrade", upgrade))
@@ -136,7 +137,7 @@ async def main():
     app.add_handler(CommandHandler("refresh", refresh))
     app.add_handler(CommandHandler("broadcast", broadcast))
 
-    # Scheduler setup
+    # Start APScheduler separately
     scheduler = AsyncIOScheduler(timezone=pytz.UTC)
     scheduler.add_job(scraper.fetch_airdrops_and_save, 'interval', hours=24)
     scheduler.start()
