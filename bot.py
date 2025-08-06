@@ -17,7 +17,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     args = context.args
@@ -26,7 +25,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             referrer_id = int(args[0])
         except ValueError:
-            referrer_id = None
+            pass
 
     if user:
         add_user(user.id, referrer_id)
@@ -38,7 +37,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Use /refresh (admin only) to refresh airdrop list."
     )
 
-# /airdrops command
 async def airdrops(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user:
@@ -48,7 +46,6 @@ async def airdrops(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("User information not found.")
 
-# /upgrade command
 async def upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "💰 To upgrade to premium, send $10 USDT (TRC20) in crypto to this address:\n\n"
@@ -57,7 +54,6 @@ async def upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
-# /users command
 async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user and user.id == ADMIN_ID:
@@ -71,7 +67,6 @@ async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ You are not authorized.")
 
-# /referral command
 async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user:
@@ -84,87 +79,10 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
 
-# /refresh command
 async def refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user and user.id == ADMIN_ID:
         try:
             scraper.fetch_airdrops_and_save()
             await update.message.reply_text("✅ Airdrops refreshed successfully!")
-        except Exception as e:
-            await update.message.reply_text(f"❌ Failed to refresh airdrops: {e}")
-            logger.error(f"Error refreshing airdrops: {e}")
-    else:
-        await update.message.reply_text("❌ You are not authorized to use this command.")
-
-# /broadcast command
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    if user and user.id == ADMIN_ID:
-        if context.args:
-            message = " ".join(context.args)
-            try:
-                with open("database.json", "r") as f:
-                    data = json.load(f)
-                users = data.get("users", [])
-            except Exception as e:
-                await update.message.reply_text("Failed to load user data.")
-                logger.error(f"Error loading user data for broadcast: {e}")
-                return
-
-            sent = 0
-            failed = 0
-            await update.message.reply_text(f"Starting broadcast to {len(users)} users...")
-
-            for user_id in users:
-                try:
-                    await context.bot.send_message(chat_id=user_id, text=message, parse_mode="Markdown")
-                    sent += 1
-                    await asyncio.sleep(0.05)
-                except Exception as e:
-                    failed += 1
-                    logger.error(f"Failed to send message to {user_id}: {e}")
-
-            await update.message.reply_text(f"Broadcast complete.\n✅ Sent: {sent}\n❌ Failed: {failed}")
-        else:
-            await update.message.reply_text("Usage: /broadcast Your message here")
-    else:
-        await update.message.reply_text("❌ You are not authorized to use this command.")
-
-# Scheduler setup
-def schedule_scraper():
-    scheduler = AsyncIOScheduler(timezone=pytz.UTC)
-    scheduler.add_job(scraper.fetch_airdrops_and_save, 'interval', hours=24)
-    scheduler.start()
-    logger.info("⏰ Scheduler started for airdrop scraper.")
-
-import asyncio
-
-async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    # Add handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("airdrops", airdrops))
-    app.add_handler(CommandHandler("upgrade", upgrade))
-    app.add_handler(CommandHandler("users", users))
-    app.add_handler(CommandHandler("referral", referral))
-    app.add_handler(CommandHandler("refresh", refresh))
-    app.add_handler(CommandHandler("broadcast", broadcast))
-
-    # Start scheduler after event loop is running
-    scheduler = AsyncIOScheduler(timezone=pytz.UTC)
-    scheduler.add_job(scraper.fetch_airdrops_and_save, 'interval', hours=24)
-    scheduler.start()
-    logger.info("⏰ Scheduler started for airdrop scraper.")
-
-    logger.info("🚀 Bot started.")
-    await app.run_polling()
-
-import nest_asyncio
-import asyncio
-
-if __name__ == '__main__':
-    nest_asyncio.apply()
-    asyncio.get_event_loop().run_until_complete(main())
-
+        except Exception as e
