@@ -85,7 +85,7 @@ async def refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             scraper.fetch_airdrops_and_save()
             await update.message.reply_text("✅ Airdrops refreshed successfully!")
-        except Exception as e
+        except Exception as e:
             await update.message.reply_text(f"❌ Failed to refresh airdrops: {e}")
             logger.error(f"Error refreshing airdrops: {e}")
     else:
